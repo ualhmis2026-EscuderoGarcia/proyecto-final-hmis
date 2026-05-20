@@ -17,7 +17,9 @@
     "preview": "vite preview",
     "electron": "npx electron .",
     "generar-exe": "npm run build && electron-builder --win",
-    "publicar-exe": "npm run build && electron-builder --win -p always"
+    "publicar-exe": "npm run build && electron-builder --win -p always",
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "build": {
     "appId": "com.tuapp.flujotrabajo",
