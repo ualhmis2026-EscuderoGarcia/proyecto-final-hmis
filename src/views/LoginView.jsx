@@ -54,7 +54,9 @@ const LoginView = () => {
 
       if (signInError) {
         console.error(signInError);
-        setError('Usuario o contraseña incorrectos.');
+        setError(signInError.message === 'Email not confirmed' 
+          ? 'Error: Correo no verificado. Debes desactivar "Confirm Email" en la configuración de Autenticación de tu panel de Supabase.'
+          : signInError.message || 'Usuario o contraseña incorrectos.');
         setIsLoading(false);
       }
     }
