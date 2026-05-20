@@ -38,7 +38,7 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
     
     // Aquí puedes ajustar los campos de acuerdo al esquema exacto de tu tabla 'proyectos'
     const newProject = {
-      nombre_cliente: clientName || "Cliente sin especificar",
+      nombre_cliente: clientName.trim() || "Proyecto sin especificar",
       tipo_proyecto: selectedType?.title,
       paginas: pageCount,
       tiene_dominio: addons.hosting,
