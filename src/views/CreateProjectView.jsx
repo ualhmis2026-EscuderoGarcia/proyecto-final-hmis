@@ -4,7 +4,7 @@ import CardSelector from '../components/CardSelector';
 import ToggleSwitch from '../components/ToggleSwitch';
 import { supabase } from '../lib/supabase';
 
-const CreateProjectView = ({ setCurrentView, setShowSuccess }) => {
+const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
   const [clientName, setClientName] = useState('');
   const [projectType, setProjectType] = useState('landing');
   const [pageCount, setPageCount] = useState(1);
@@ -45,7 +45,8 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess }) => {
       multi_idioma: addons.multilang,
       pasarela_pago: addons.payments,
       fecha_estimada: deliveryDate.toISOString().split('T')[0],
-      estado: 'activo'
+      estado: 'activo',
+      user_id: session?.user?.id
     };
     
     const { error } = await supabase

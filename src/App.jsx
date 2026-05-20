@@ -10,7 +10,7 @@ import AdvancedStatsView from './views/AdvancedStatsView';
 import SettingsView from './views/SettingsView';
 
 // ── CRM Layout (internal, with Sidebar) ──────────────────
-function CRMApp() {
+function CRMApp({ session }) {
   const [currentView, setCurrentView] = useState('dashboard');
   const [showSuccess, setShowSuccess] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
@@ -73,6 +73,7 @@ function CRMApp() {
           <CreateProjectView
             setCurrentView={setCurrentView}
             setShowSuccess={setShowSuccess}
+            session={session}
           />
         )}
         
@@ -137,13 +138,13 @@ function App() {
           {/* Internal project view - Protegido */}
           <Route 
             path="/proyecto/:id/*" 
-            element={session ? <ProjectLayout /> : <LoginView />} 
+            element={session ? <ProjectLayout session={session} /> : <LoginView />} 
           />
 
           {/* CRM app — Protegido */}
           <Route 
             path="/*" 
-            element={session ? <CRMApp /> : <LoginView />} 
+            element={session ? <CRMApp session={session} /> : <LoginView />} 
           />
         </Routes>
       )}
