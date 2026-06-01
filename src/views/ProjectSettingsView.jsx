@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Settings, Loader2, AlertCircle, Globe, MapPin, BarChart2 } from 'lucide-react';
+import { Save, Loader2, AlertCircle, Globe, MapPin, BarChart2, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useParams, useNavigate } from 'react-router-dom';
 
@@ -41,6 +41,24 @@ const ProjectSettingsView = () => {
     url_web:        '',
   });
 
+  // Información detallada del cliente
+  const [clientInfo, setClientInfo] = useState({
+    client_contact_name: '',
+    client_company:      '',
+    client_email:        '',
+    client_phone:        '',
+    client_whatsapp:     '',
+    client_address:      '',
+    client_sector:       '',
+    client_tax_id:       '',
+    client_notes:        '',
+  });
+
+  const handleClientInfo = (e) => {
+    const { name, value } = e.target;
+    setClientInfo(prev => ({ ...prev, [name]: value }));
+  };
+
   // Servicio Google Business
   const [gbEnabled, setGbEnabled] = useState(false);
   const [gbData, setGbData] = useState({
@@ -81,6 +99,17 @@ const ProjectSettingsView = () => {
           multi_idioma:   data.multi_idioma   || false,
           pasarela_pago:  data.pasarela_pago  || false,
           url_web:        data.url_web        || '',
+        });
+        setClientInfo({
+          client_contact_name: data.client_contact_name || '',
+          client_company:      data.client_company      || '',
+          client_email:        data.client_email        || '',
+          client_phone:        data.client_phone        || '',
+          client_whatsapp:     data.client_whatsapp     || '',
+          client_address:      data.client_address      || '',
+          client_sector:       data.client_sector       || '',
+          client_tax_id:       data.client_tax_id       || '',
+          client_notes:        data.client_notes        || '',
         });
       }
 
@@ -125,6 +154,23 @@ const ProjectSettingsView = () => {
     setSuccess(false);
     setErrorMessage(null);
 
+    // Validaciones de información del cliente
+    if (clientInfo.client_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientInfo.client_email)) {
+      setErrorMessage('El email del cliente no tiene un formato válido.');
+      setSaving(false);
+      return;
+    }
+    if (clientInfo.client_phone && !/^[\d\s+\-()]+$/.test(clientInfo.client_phone)) {
+      setErrorMessage('El teléfono no tiene un formato válido.');
+      setSaving(false);
+      return;
+    }
+    if (clientInfo.client_whatsapp && !/^[\d\s+\-()]+$/.test(clientInfo.client_whatsapp)) {
+      setErrorMessage('El WhatsApp no tiene un formato válido.');
+      setSaving(false);
+      return;
+    }
+
     // Validaciones de servicios
     if (gbEnabled && gbData.profile_url) {
       try { new URL(gbData.profile_url); } catch {
@@ -161,6 +207,15 @@ const ProjectSettingsView = () => {
         multi_idioma:   formData.multi_idioma,
         pasarela_pago:  formData.pasarela_pago,
         url_web:        formData.url_web || null,
+        client_contact_name: clientInfo.client_contact_name || null,
+        client_company:      clientInfo.client_company      || null,
+        client_email:        clientInfo.client_email        || null,
+        client_phone:        clientInfo.client_phone        || null,
+        client_whatsapp:     clientInfo.client_whatsapp     || null,
+        client_address:      clientInfo.client_address      || null,
+        client_sector:       clientInfo.client_sector       || null,
+        client_tax_id:       clientInfo.client_tax_id       || null,
+        client_notes:        clientInfo.client_notes        || null,
       })
       .eq('id', id);
 
@@ -305,6 +360,109 @@ const ProjectSettingsView = () => {
                     <span className="text-sm font-bold text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">Integración Pasarela de Pago</span>
                   </label>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* INFORMACIÓN DEL CLIENTE */}
+          <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-white/5 rounded-3xl p-8 shadow-sm">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-white/10 pb-2 mb-6 flex items-center gap-2">
+              <User size={18} className="text-violet-500" /> Información del Cliente
+            </h3>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Contacto principal</label>
+                  <input
+                    name="client_contact_name" type="text"
+                    placeholder="Nombre y apellidos"
+                    value={clientInfo.client_contact_name} onChange={handleClientInfo}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Empresa o negocio</label>
+                  <input
+                    name="client_company" type="text"
+                    placeholder="Nombre comercial o razón social"
+                    value={clientInfo.client_company} onChange={handleClientInfo}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Email</label>
+                  <input
+                    name="client_email" type="email"
+                    placeholder="cliente@empresa.com"
+                    value={clientInfo.client_email} onChange={handleClientInfo}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Teléfono</label>
+                  <input
+                    name="client_phone" type="tel"
+                    placeholder="+34 600 000 000"
+                    value={clientInfo.client_phone} onChange={handleClientInfo}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>WhatsApp</label>
+                  <input
+                    name="client_whatsapp" type="tel"
+                    placeholder="+34 600 000 000"
+                    value={clientInfo.client_whatsapp} onChange={handleClientInfo}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Dirección o zona</label>
+                  <input
+                    name="client_address" type="text"
+                    placeholder="Ciudad, provincia o dirección"
+                    value={clientInfo.client_address} onChange={handleClientInfo}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Sector del negocio</label>
+                  <input
+                    name="client_sector" type="text"
+                    placeholder="Ej. Restauración, Retail, Legal..."
+                    value={clientInfo.client_sector} onChange={handleClientInfo}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>NIF / CIF <span className="text-gray-400 font-normal">(opcional)</span></label>
+                  <input
+                    name="client_tax_id" type="text"
+                    placeholder="Ej. B12345678"
+                    value={clientInfo.client_tax_id} onChange={handleClientInfo}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>Notas internas del cliente</label>
+                <textarea
+                  name="client_notes" rows={3}
+                  placeholder="Observaciones privadas sobre el cliente..."
+                  value={clientInfo.client_notes} onChange={handleClientInfo}
+                  className={inputClass + ' resize-none'}
+                />
               </div>
             </div>
           </div>

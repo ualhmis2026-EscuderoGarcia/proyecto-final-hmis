@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layout, Globe, ShoppingCart, Server, Globe2, CreditCard, ChevronRight, ArrowLeft, MapPin, BarChart2 } from 'lucide-react';
+import { Layout, Globe, ShoppingCart, Server, Globe2, CreditCard, ChevronRight, ArrowLeft, MapPin, BarChart2, User } from 'lucide-react';
 import CardSelector from '../components/CardSelector';
 import ToggleSwitch from '../components/ToggleSwitch';
 import { supabase } from '../lib/supabase';
@@ -27,6 +27,21 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
   const [projectType, setProjectType] = useState('landing');
   const [pageCount, setPageCount] = useState(1);
   const [addons, setAddons] = useState({ hosting: true, multilang: false, payments: false });
+
+  // Información detallada del cliente
+  const [clientInfo, setClientInfo] = useState({
+    client_contact_name: '',
+    client_company:      '',
+    client_email:        '',
+    client_phone:        '',
+    client_whatsapp:     '',
+    client_address:      '',
+    client_sector:       '',
+    client_tax_id:       '',
+    client_notes:        '',
+  });
+
+  const handleClientInfo = (field, value) => setClientInfo(prev => ({ ...prev, [field]: value }));
 
   // Servicios adicionales
   const [gbEnabled, setGbEnabled] = useState(false);
@@ -65,6 +80,22 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
   const handleAddonChange = (id, value) => setAddons(prev => ({ ...prev, [id]: value }));
 
   const handleCreateProject = async () => {
+    // Validación email del cliente
+    if (clientInfo.client_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientInfo.client_email)) {
+      alert('El email del cliente no tiene un formato válido.');
+      return;
+    }
+    // Validación teléfono
+    if (clientInfo.client_phone && !/^[\d\s+\-()]+$/.test(clientInfo.client_phone)) {
+      alert('El teléfono no tiene un formato válido. Usa solo números, espacios, +, - o paréntesis.');
+      return;
+    }
+    // Validación WhatsApp
+    if (clientInfo.client_whatsapp && !/^[\d\s+\-()]+$/.test(clientInfo.client_whatsapp)) {
+      alert('El WhatsApp no tiene un formato válido. Usa solo números, espacios, +, - o paréntesis.');
+      return;
+    }
+
     // Validaciones de servicios
     if (gbEnabled && gbData.profile_url) {
       try { new URL(gbData.profile_url); } catch {
@@ -97,6 +128,15 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
       fecha_estimada: deliveryDate.toISOString().split('T')[0],
       estado:         'activo',
       user_id:        session?.user?.id,
+      client_contact_name: clientInfo.client_contact_name || null,
+      client_company:      clientInfo.client_company      || null,
+      client_email:        clientInfo.client_email        || null,
+      client_phone:        clientInfo.client_phone        || null,
+      client_whatsapp:     clientInfo.client_whatsapp     || null,
+      client_address:      clientInfo.client_address      || null,
+      client_sector:       clientInfo.client_sector       || null,
+      client_tax_id:       clientInfo.client_tax_id       || null,
+      client_notes:        clientInfo.client_notes        || null,
     };
 
     const { data: projectData, error } = await supabase
@@ -173,7 +213,7 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
           </div>
           <div className="ml-11 space-y-6">
             <div>
-              <label className={labelClass} htmlFor="clientName">Nombre del Cliente</label>
+              <label className={labelClass} htmlFor="clientName">Nombre del Cliente / Proyecto</label>
               <input
                 id="clientName"
                 type="text"
@@ -204,11 +244,129 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
 
         <div className="h-px bg-gray-200 dark:bg-white/10 w-full my-8"></div>
 
-        {/* PASO 2 */}
+        {/* PASO 2 — Información del Cliente */}
         <section className="mb-10">
           <div className="mb-6">
             <h2 className="text-2xl font-bold flex items-center gap-3 text-gray-900 dark:text-white mb-1">
-              <span className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-md shadow-indigo-500/30">2</span>
+              <span className="bg-gradient-to-br from-violet-500 to-purple-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-md shadow-violet-500/30">2</span>
+              Información del Cliente
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 text-sm ml-11 font-medium">Datos de contacto y perfil del cliente. Todos los campos son opcionales.</p>
+          </div>
+
+          <div className="ml-11 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Contacto principal</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  placeholder="Nombre y apellidos"
+                  value={clientInfo.client_contact_name}
+                  onChange={(e) => handleClientInfo('client_contact_name', e.target.value)}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Empresa o negocio</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  placeholder="Nombre comercial o razón social"
+                  value={clientInfo.client_company}
+                  onChange={(e) => handleClientInfo('client_company', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Email</label>
+                <input
+                  type="email"
+                  className={inputClass}
+                  placeholder="cliente@empresa.com"
+                  value={clientInfo.client_email}
+                  onChange={(e) => handleClientInfo('client_email', e.target.value)}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Teléfono</label>
+                <input
+                  type="tel"
+                  className={inputClass}
+                  placeholder="+34 600 000 000"
+                  value={clientInfo.client_phone}
+                  onChange={(e) => handleClientInfo('client_phone', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>WhatsApp</label>
+                <input
+                  type="tel"
+                  className={inputClass}
+                  placeholder="+34 600 000 000"
+                  value={clientInfo.client_whatsapp}
+                  onChange={(e) => handleClientInfo('client_whatsapp', e.target.value)}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Dirección o zona</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  placeholder="Ciudad, provincia o dirección"
+                  value={clientInfo.client_address}
+                  onChange={(e) => handleClientInfo('client_address', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Sector del negocio</label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  placeholder="Ej. Restauración, Retail, Legal..."
+                  value={clientInfo.client_sector}
+                  onChange={(e) => handleClientInfo('client_sector', e.target.value)}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>NIF / CIF <span className="text-gray-400 font-normal">(opcional)</span></label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  placeholder="Ej. B12345678"
+                  value={clientInfo.client_tax_id}
+                  onChange={(e) => handleClientInfo('client_tax_id', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>Notas internas del cliente</label>
+              <textarea
+                rows={3}
+                className={inputClass + ' resize-none'}
+                placeholder="Observaciones privadas sobre el cliente..."
+                value={clientInfo.client_notes}
+                onChange={(e) => handleClientInfo('client_notes', e.target.value)}
+              />
+            </div>
+          </div>
+        </section>
+
+        <div className="h-px bg-gray-200 dark:bg-white/10 w-full my-8"></div>
+
+        {/* PASO 3 */}
+        <section className="mb-10">
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold flex items-center gap-3 text-gray-900 dark:text-white mb-1">
+              <span className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-md shadow-indigo-500/30">3</span>
               Estructura y Opciones
             </h2>
             <p className="text-gray-500 dark:text-gray-400 text-sm ml-11 font-medium">Define la magnitud del proyecto y funcionalidades extra.</p>
@@ -246,11 +404,11 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
 
         <div className="h-px bg-gray-200 dark:bg-white/10 w-full my-8"></div>
 
-        {/* PASO 3 — Servicios Adicionales */}
+        {/* PASO 4 — Servicios Adicionales */}
         <section>
           <div className="mb-6">
             <h2 className="text-2xl font-bold flex items-center gap-3 text-gray-900 dark:text-white mb-1">
-              <span className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-md shadow-emerald-500/30">3</span>
+              <span className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-md shadow-emerald-500/30">4</span>
               Servicios Adicionales
             </h2>
             <p className="text-gray-500 dark:text-gray-400 text-sm ml-11 font-medium">Servicios complementarios de marketing digital para este cliente.</p>
@@ -427,6 +585,32 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
               <span className="font-bold text-gray-600 dark:text-gray-400">Páginas</span>
               <span className="font-black text-gray-900 dark:text-white">{pageCount}</span>
             </div>
+
+            {(clientInfo.client_company || clientInfo.client_email || clientInfo.client_phone) && (
+              <div className="pt-5 mt-3 border-t border-gray-100 dark:border-white/5">
+                <p className="text-[11px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-extrabold mb-4 flex items-center gap-1.5">
+                  <User size={10} /> Info Cliente
+                </p>
+                {clientInfo.client_company && (
+                  <div className="flex justify-between text-sm mb-3">
+                    <span className="font-medium text-gray-600 dark:text-gray-400">Empresa</span>
+                    <span className="font-bold text-gray-900 dark:text-white truncate ml-4 max-w-[140px]">{clientInfo.client_company}</span>
+                  </div>
+                )}
+                {clientInfo.client_email && (
+                  <div className="flex justify-between text-sm mb-3">
+                    <span className="font-medium text-gray-600 dark:text-gray-400">Email</span>
+                    <span className="font-bold text-gray-900 dark:text-white truncate ml-4 max-w-[140px]">{clientInfo.client_email}</span>
+                  </div>
+                )}
+                {clientInfo.client_phone && (
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium text-gray-600 dark:text-gray-400">Teléfono</span>
+                    <span className="font-bold text-gray-900 dark:text-white">{clientInfo.client_phone}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {(addons.hosting || addons.payments || addons.multilang) && (
               <div className="pt-5 mt-3 border-t border-gray-100 dark:border-white/5">

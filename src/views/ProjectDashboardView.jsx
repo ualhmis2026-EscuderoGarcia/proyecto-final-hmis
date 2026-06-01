@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { AlertCircle, CheckCircle2, ChevronRight, Activity, CalendarDays, MapPin, BarChart2, Briefcase } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronRight, Activity, CalendarDays, MapPin, BarChart2, Briefcase, User, Mail, Phone, MessageCircle, Building2, Tag } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 
 const STATUS_COLORS = {
@@ -216,6 +216,119 @@ const ProjectDashboardView = () => {
               <span>Entrega: {project?.fecha_estimada ? new Date(project.fecha_estimada).toLocaleDateString() : 'Sin estimar'}</span>
             </div>
           </div>
+        </div>
+
+        {/* INFORMACIÓN DEL CLIENTE */}
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-white/5 rounded-3xl p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-6">
+            <User size={18} className="text-violet-500" />
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Información del Cliente</h3>
+          </div>
+
+          {project?.client_contact_name || project?.client_company || project?.client_email || project?.client_phone ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {project.client_contact_name && (
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-violet-50 dark:bg-violet-500/10 rounded-xl shrink-0">
+                    <User size={15} className="text-violet-600 dark:text-violet-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Contacto</p>
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">{project.client_contact_name}</p>
+                  </div>
+                </div>
+              )}
+              {project.client_company && (
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-blue-50 dark:bg-blue-500/10 rounded-xl shrink-0">
+                    <Building2 size={15} className="text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Empresa</p>
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">{project.client_company}</p>
+                  </div>
+                </div>
+              )}
+              {project.client_email && (
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-emerald-50 dark:bg-emerald-500/10 rounded-xl shrink-0">
+                    <Mail size={15} className="text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Email</p>
+                    <a href={`mailto:${project.client_email}`} className="text-sm font-bold text-emerald-600 dark:text-emerald-400 hover:underline">{project.client_email}</a>
+                  </div>
+                </div>
+              )}
+              {project.client_phone && (
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl shrink-0">
+                    <Phone size={15} className="text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Teléfono</p>
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">{project.client_phone}</p>
+                  </div>
+                </div>
+              )}
+              {project.client_whatsapp && (
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-green-50 dark:bg-green-500/10 rounded-xl shrink-0">
+                    <MessageCircle size={15} className="text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">WhatsApp</p>
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">{project.client_whatsapp}</p>
+                  </div>
+                </div>
+              )}
+              {project.client_address && (
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-amber-50 dark:bg-amber-500/10 rounded-xl shrink-0">
+                    <MapPin size={15} className="text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Dirección</p>
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">{project.client_address}</p>
+                  </div>
+                </div>
+              )}
+              {project.client_sector && (
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-rose-50 dark:bg-rose-500/10 rounded-xl shrink-0">
+                    <Tag size={15} className="text-rose-600 dark:text-rose-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Sector</p>
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">{project.client_sector}</p>
+                  </div>
+                </div>
+              )}
+              {project.client_tax_id && (
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-gray-100 dark:bg-white/10 rounded-xl shrink-0">
+                    <Tag size={15} className="text-gray-500 dark:text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">NIF/CIF</p>
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">{project.client_tax_id}</p>
+                  </div>
+                </div>
+              )}
+              {project.client_notes && (
+                <div className="md:col-span-2 lg:col-span-3 bg-gray-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-gray-100 dark:border-white/5">
+                  <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1.5">Notas internas</p>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 font-medium whitespace-pre-wrap">{project.client_notes}</p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-400 dark:text-gray-500">
+              <User size={32} className="mx-auto mb-3 opacity-30" />
+              <p className="font-medium">Sin información de contacto registrada</p>
+              <p className="text-sm mt-1">Puedes añadirla desde Configuración del Proyecto.</p>
+            </div>
+          )}
         </div>
 
         {/* SERVICIOS ADICIONALES */}
