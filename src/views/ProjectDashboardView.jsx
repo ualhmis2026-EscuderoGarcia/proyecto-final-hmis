@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { AlertCircle, CheckCircle2, ChevronRight, Activity, CalendarDays, MapPin, BarChart2, Briefcase, User, Mail, Phone, MessageCircle, Building2, Tag } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronRight, Activity, CalendarDays, MapPin, BarChart2, Briefcase, User, Mail, Phone, MessageCircle, Building2, Tag, DollarSign, Wrench } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 
 const STATUS_COLORS = {
@@ -18,6 +18,23 @@ const CAMPAIGN_LABELS = {
   video:           'Video',
   performance_max: 'Performance Max',
 };
+
+const PAYMENT_STATUS_LABELS = {
+  pendiente:            { label: 'Pendiente',            color: 'bg-amber-100  text-amber-700  dark:bg-amber-500/20  dark:text-amber-400'  },
+  senal_pagada:         { label: 'Señal pagada',         color: 'bg-blue-100   text-blue-700   dark:bg-blue-500/20   dark:text-blue-400'   },
+  parcialmente_pagado:  { label: 'Pagado parcialmente',  color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-400' },
+  completamente_pagado: { label: 'Pagado completo',      color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' },
+  cancelado:            { label: 'Cancelado',            color: 'bg-red-100    text-red-700    dark:bg-red-500/20    dark:text-red-400'    },
+};
+
+const MAINTENANCE_STATUS_LABELS = {
+  no_contratado: { label: 'No contratado', color: 'bg-gray-100   text-gray-600   dark:bg-white/10     dark:text-gray-400'   },
+  activo:        { label: 'Activo',        color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' },
+  pausado:       { label: 'Pausado',       color: 'bg-amber-100  text-amber-700  dark:bg-amber-500/20  dark:text-amber-400'  },
+  cancelado:     { label: 'Cancelado',     color: 'bg-red-100    text-red-700    dark:bg-red-500/20    dark:text-red-400'    },
+};
+
+const fmt = (n) => (parseFloat(n) || 0).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const ProjectDashboardView = () => {
   const { id } = useParams();
@@ -326,6 +343,99 @@ const ProjectDashboardView = () => {
             <div className="text-center py-8 text-gray-400 dark:text-gray-500">
               <User size={32} className="mx-auto mb-3 opacity-30" />
               <p className="font-medium">Sin información de contacto registrada</p>
+              <p className="text-sm mt-1">Puedes añadirla desde Configuración del Proyecto.</p>
+            </div>
+          )}
+        </div>
+
+        {/* INFORMACIÓN ECONÓMICA */}
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-white/5 rounded-3xl p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-6">
+            <DollarSign size={18} className="text-amber-500" />
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Información Económica</h3>
+          </div>
+
+          {project?.web_price != null || project?.amount_paid != null || project?.has_maintenance ? (() => {
+            const webPrice    = parseFloat(project.web_price)    || 0;
+            const amountPaid  = parseFloat(project.amount_paid)  || 0;
+            const pending     = Math.max(webPrice - amountPaid, 0);
+            const maintFee    = parseFloat(project.maintenance_monthly_fee) || 0;
+            const adsFee      = adsService?.status === 'activo' ? (parseFloat(adsService.monthly_fee) || 0) : 0;
+            const monthlyIncome = (project.has_maintenance && project.maintenance_status === 'activo' ? maintFee : 0) + adsFee;
+            const payStatus   = PAYMENT_STATUS_LABELS[project.payment_status];
+            const maintStatus = MAINTENANCE_STATUS_LABELS[project.maintenance_status || 'no_contratado'];
+
+            return (
+              <div className="space-y-5">
+                {/* Fila de KPIs */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-gray-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-gray-100 dark:border-white/5">
+                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">Precio web</p>
+                    <p className="text-xl font-black text-gray-900 dark:text-white">{fmt(webPrice)} €</p>
+                  </div>
+                  <div className="bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl p-4 border border-emerald-100 dark:border-emerald-500/10">
+                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide mb-1">Cobrado</p>
+                    <p className="text-xl font-black text-gray-900 dark:text-white">{fmt(amountPaid)} €</p>
+                  </div>
+                  <div className={`rounded-2xl p-4 border ${pending > 0 ? 'bg-amber-50 dark:bg-amber-500/10 border-amber-100 dark:border-amber-500/10' : 'bg-gray-50 dark:bg-slate-800/50 border-gray-100 dark:border-white/5'}`}>
+                    <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${pending > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>Pendiente</p>
+                    <p className="text-xl font-black text-gray-900 dark:text-white">{fmt(pending)} €</p>
+                  </div>
+                  <div className="bg-blue-50 dark:bg-blue-500/10 rounded-2xl p-4 border border-blue-100 dark:border-blue-500/10">
+                    <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-1">Ingreso / mes</p>
+                    <p className="text-xl font-black text-gray-900 dark:text-white">{fmt(monthlyIncome)} €</p>
+                  </div>
+                </div>
+
+                {/* Estado de pago */}
+                {payStatus && (
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-gray-600 dark:text-gray-400">Estado de pago:</span>
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-lg ${payStatus.color}`}>{payStatus.label}</span>
+                  </div>
+                )}
+
+                {/* Mantenimiento */}
+                <div className="bg-gray-50 dark:bg-slate-800/50 rounded-2xl p-4 border border-gray-100 dark:border-white/5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Wrench size={15} className="text-gray-500 dark:text-gray-400" />
+                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Mantenimiento mensual</span>
+                    {maintStatus && (
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-lg ${maintStatus.color}`}>{maintStatus.label}</span>
+                    )}
+                  </div>
+                  {project.has_maintenance ? (
+                    <div className="space-y-2 text-sm">
+                      {maintFee > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500 dark:text-gray-400 font-medium">Cuota mensual</span>
+                          <span className="font-bold text-gray-900 dark:text-white">{fmt(maintFee)} €/mes</span>
+                        </div>
+                      )}
+                      {project.maintenance_start_date && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500 dark:text-gray-400 font-medium">Inicio</span>
+                          <span className="font-bold text-gray-900 dark:text-white">
+                            {new Date(project.maintenance_start_date).toLocaleDateString('es-ES')}
+                          </span>
+                        </div>
+                      )}
+                      {project.maintenance_notes && (
+                        <p className="text-gray-500 dark:text-gray-400 text-xs pt-2 border-t border-gray-100 dark:border-white/10 whitespace-pre-wrap">
+                          {project.maintenance_notes}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400 dark:text-gray-500 font-medium">Sin mantenimiento contratado</p>
+                  )}
+                </div>
+              </div>
+            );
+          })() : (
+            <div className="text-center py-8 text-gray-400 dark:text-gray-500">
+              <DollarSign size={32} className="mx-auto mb-3 opacity-30" />
+              <p className="font-medium">Sin información económica registrada</p>
               <p className="text-sm mt-1">Puedes añadirla desde Configuración del Proyecto.</p>
             </div>
           )}

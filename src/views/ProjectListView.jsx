@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import ProjectCard from '../components/ProjectCard';
 import KanbanView from './KanbanView';
 import OperationsSummary from '../components/OperationsSummary';
+import EconomicSummary from '../components/EconomicSummary';
 
 const ProjectListView = ({ viewType, onEdit }) => {
   const [projectsList, setProjectsList] = useState([]);
@@ -88,6 +89,9 @@ const ProjectListView = ({ viewType, onEdit }) => {
 
       {/* Operations Summary (Dashboard Only) */}
       {viewType === 'dashboard' && <OperationsSummary />}
+
+      {/* Economic Summary (Dashboard Only) */}
+      {viewType === 'dashboard' && <EconomicSummary />}
 
       {/* Kanban view (dashboard only) */}
       {viewType === 'dashboard' && displayMode === 'kanban' ? (

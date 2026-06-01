@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, AlertCircle, Globe, MapPin, BarChart2, User } from 'lucide-react';
+import { Save, Loader2, AlertCircle, Globe, MapPin, BarChart2, User, DollarSign, Wrench } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useParams, useNavigate } from 'react-router-dom';
 
@@ -16,6 +16,21 @@ const CAMPAIGN_TYPES = [
   { value: 'shopping',        label: 'Shopping' },
   { value: 'video',           label: 'Video' },
   { value: 'performance_max', label: 'Performance Max' },
+];
+
+const PAYMENT_STATUSES = [
+  { value: 'pendiente',            label: 'Pendiente' },
+  { value: 'senal_pagada',         label: 'Señal pagada' },
+  { value: 'parcialmente_pagado',  label: 'Pagado parcialmente' },
+  { value: 'completamente_pagado', label: 'Pagado completo' },
+  { value: 'cancelado',            label: 'Cancelado' },
+];
+
+const MAINTENANCE_STATUSES = [
+  { value: 'no_contratado', label: 'No contratado' },
+  { value: 'activo',        label: 'Activo' },
+  { value: 'pausado',       label: 'Pausado' },
+  { value: 'cancelado',     label: 'Cancelado' },
 ];
 
 const inputClass = "w-full px-4 py-3 bg-gray-50 dark:bg-slate-800/50 border border-gray-200 dark:border-white/10 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white font-medium";
@@ -57,6 +72,22 @@ const ProjectSettingsView = () => {
   const handleClientInfo = (e) => {
     const { name, value } = e.target;
     setClientInfo(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Información económica
+  const [financialInfo, setFinancialInfo] = useState({
+    web_price:               '',
+    amount_paid:             '',
+    payment_status:          'pendiente',
+    has_maintenance:         false,
+    maintenance_monthly_fee: '',
+    maintenance_status:      'no_contratado',
+    maintenance_start_date:  '',
+    maintenance_notes:       '',
+  });
+  const handleFinancial = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFinancialInfo(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
   // Servicio Google Business
@@ -110,6 +141,16 @@ const ProjectSettingsView = () => {
           client_sector:       data.client_sector       || '',
           client_tax_id:       data.client_tax_id       || '',
           client_notes:        data.client_notes        || '',
+        });
+        setFinancialInfo({
+          web_price:               data.web_price               != null ? String(data.web_price)               : '',
+          amount_paid:             data.amount_paid             != null ? String(data.amount_paid)             : '',
+          payment_status:          data.payment_status          || 'pendiente',
+          has_maintenance:         data.has_maintenance         ?? false,
+          maintenance_monthly_fee: data.maintenance_monthly_fee != null ? String(data.maintenance_monthly_fee) : '',
+          maintenance_status:      data.maintenance_status      || 'no_contratado',
+          maintenance_start_date:  data.maintenance_start_date  || '',
+          maintenance_notes:       data.maintenance_notes       || '',
         });
       }
 
@@ -171,6 +212,23 @@ const ProjectSettingsView = () => {
       return;
     }
 
+    // Validaciones económicas
+    if (financialInfo.web_price !== '' && parseFloat(financialInfo.web_price) < 0) {
+      setErrorMessage('El precio de la web no puede ser negativo.'); setSaving(false); return;
+    }
+    if (financialInfo.amount_paid !== '' && parseFloat(financialInfo.amount_paid) < 0) {
+      setErrorMessage('El importe cobrado no puede ser negativo.'); setSaving(false); return;
+    }
+    if (financialInfo.maintenance_monthly_fee !== '' && parseFloat(financialInfo.maintenance_monthly_fee) < 0) {
+      setErrorMessage('La cuota de mantenimiento no puede ser negativa.'); setSaving(false); return;
+    }
+    const _wp = parseFloat(financialInfo.web_price)   || 0;
+    const _ap = parseFloat(financialInfo.amount_paid) || 0;
+    if (_ap > _wp && _wp > 0) {
+      const ok = window.confirm('El importe cobrado supera el precio de la web. ¿Continuar igualmente?');
+      if (!ok) { setSaving(false); return; }
+    }
+
     // Validaciones de servicios
     if (gbEnabled && gbData.profile_url) {
       try { new URL(gbData.profile_url); } catch {
@@ -216,6 +274,14 @@ const ProjectSettingsView = () => {
         client_sector:       clientInfo.client_sector       || null,
         client_tax_id:       clientInfo.client_tax_id       || null,
         client_notes:        clientInfo.client_notes        || null,
+        web_price:               financialInfo.web_price               !== '' ? parseFloat(financialInfo.web_price)               : null,
+        amount_paid:             financialInfo.amount_paid             !== '' ? parseFloat(financialInfo.amount_paid)             : null,
+        payment_status:          financialInfo.payment_status          || null,
+        has_maintenance:         financialInfo.has_maintenance,
+        maintenance_monthly_fee: financialInfo.has_maintenance && financialInfo.maintenance_monthly_fee !== '' ? parseFloat(financialInfo.maintenance_monthly_fee) : null,
+        maintenance_status:      financialInfo.has_maintenance ? financialInfo.maintenance_status : 'no_contratado',
+        maintenance_start_date:  financialInfo.has_maintenance && financialInfo.maintenance_start_date ? financialInfo.maintenance_start_date : null,
+        maintenance_notes:       financialInfo.has_maintenance && financialInfo.maintenance_notes ? financialInfo.maintenance_notes : null,
       })
       .eq('id', id);
 
@@ -463,6 +529,109 @@ const ProjectSettingsView = () => {
                   value={clientInfo.client_notes} onChange={handleClientInfo}
                   className={inputClass + ' resize-none'}
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* INFORMACIÓN ECONÓMICA */}
+          <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-white/5 rounded-3xl p-8 shadow-sm">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-white/10 pb-2 mb-6 flex items-center gap-2">
+              <DollarSign size={18} className="text-amber-500" /> Información Económica
+            </h3>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Precio de la web (€)</label>
+                  <input name="web_price" type="number" min="0" step="0.01" placeholder="0.00"
+                    value={financialInfo.web_price} onChange={handleFinancial} className={inputClass} />
+                </div>
+                <div>
+                  <label className={labelClass}>Estado de pago</label>
+                  <select name="payment_status" value={financialInfo.payment_status}
+                    onChange={handleFinancial} className={inputClass + ' cursor-pointer'}>
+                    {PAYMENT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Importe cobrado (€)</label>
+                  <input name="amount_paid" type="number" min="0" step="0.01" placeholder="0.00"
+                    value={financialInfo.amount_paid} onChange={handleFinancial} className={inputClass} />
+                  {financialInfo.web_price !== '' && financialInfo.amount_paid !== '' && (() => {
+                    const pending = Math.max((parseFloat(financialInfo.web_price) || 0) - (parseFloat(financialInfo.amount_paid) || 0), 0);
+                    return (
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-1.5">
+                        Pendiente: <span className={`font-bold ${pending > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{pending.toFixed(2)} €</span>
+                      </p>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              <div className="h-px bg-gray-100 dark:bg-white/10"></div>
+
+              {/* Toggle mantenimiento */}
+              <div className="border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden">
+                <label className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-800/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700/50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-100 dark:bg-amber-500/20 rounded-xl">
+                      <Wrench size={18} className="text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-800 dark:text-gray-200">Mantenimiento mensual contratado</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">El cliente tiene un plan de mantenimiento activo</p>
+                    </div>
+                  </div>
+                  <div className="relative inline-flex items-center ml-4 shrink-0">
+                    <input type="checkbox" className="sr-only peer" name="has_maintenance"
+                      checked={financialInfo.has_maintenance}
+                      onChange={(e) => {
+                        const v = e.target.checked;
+                        setFinancialInfo(prev => ({
+                          ...prev,
+                          has_maintenance: v,
+                          maintenance_status: v ? (prev.maintenance_status === 'no_contratado' ? 'activo' : prev.maintenance_status) : 'no_contratado',
+                        }));
+                      }} />
+                    <div className="w-11 h-6 bg-gray-200 dark:bg-slate-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </div>
+                </label>
+
+                {financialInfo.has_maintenance && (
+                  <div className="p-5 border-t border-gray-200 dark:border-white/10 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className={labelClass}>Cuota mensual (€/mes)</label>
+                        <input name="maintenance_monthly_fee" type="number" min="0" step="0.01" placeholder="0.00"
+                          value={financialInfo.maintenance_monthly_fee} onChange={handleFinancial} className={inputClass} />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Estado del mantenimiento</label>
+                        <select name="maintenance_status" value={financialInfo.maintenance_status}
+                          onChange={handleFinancial} className={inputClass + ' cursor-pointer'}>
+                          {MAINTENANCE_STATUSES.filter(s => s.value !== 'no_contratado').map(s =>
+                            <option key={s.value} value={s.value}>{s.label}</option>
+                          )}
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className={labelClass}>Fecha de inicio del mantenimiento</label>
+                      <input name="maintenance_start_date" type="date"
+                        value={financialInfo.maintenance_start_date} onChange={handleFinancial} className={inputClass} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Notas internas del mantenimiento</label>
+                      <textarea name="maintenance_notes" rows={3}
+                        placeholder="Observaciones sobre el contrato de mantenimiento..."
+                        value={financialInfo.maintenance_notes} onChange={handleFinancial}
+                        className={inputClass + ' resize-none'} />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

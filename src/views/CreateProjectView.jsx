@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layout, Globe, ShoppingCart, Server, Globe2, CreditCard, ChevronRight, ArrowLeft, MapPin, BarChart2, User } from 'lucide-react';
+import { Layout, Globe, ShoppingCart, Server, Globe2, CreditCard, ChevronRight, ArrowLeft, MapPin, BarChart2, User, DollarSign, Wrench } from 'lucide-react';
 import CardSelector from '../components/CardSelector';
 import ToggleSwitch from '../components/ToggleSwitch';
 import { supabase } from '../lib/supabase';
@@ -17,6 +17,21 @@ const CAMPAIGN_TYPES = [
   { value: 'shopping',        label: 'Shopping' },
   { value: 'video',           label: 'Video' },
   { value: 'performance_max', label: 'Performance Max' },
+];
+
+const PAYMENT_STATUSES = [
+  { value: 'pendiente',            label: 'Pendiente' },
+  { value: 'senal_pagada',         label: 'Señal pagada' },
+  { value: 'parcialmente_pagado',  label: 'Pagado parcialmente' },
+  { value: 'completamente_pagado', label: 'Pagado completo' },
+  { value: 'cancelado',            label: 'Cancelado' },
+];
+
+const MAINTENANCE_STATUSES = [
+  { value: 'no_contratado', label: 'No contratado' },
+  { value: 'activo',        label: 'Activo' },
+  { value: 'pausado',       label: 'Pausado' },
+  { value: 'cancelado',     label: 'Cancelado' },
 ];
 
 const inputClass = "w-full px-4 py-3 border border-gray-300 dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white dark:bg-slate-800/50 transition-all font-medium text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 shadow-sm";
@@ -40,28 +55,36 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
     client_tax_id:       '',
     client_notes:        '',
   });
-
   const handleClientInfo = (field, value) => setClientInfo(prev => ({ ...prev, [field]: value }));
 
   // Servicios adicionales
   const [gbEnabled, setGbEnabled] = useState(false);
   const [gbData, setGbData] = useState({
-    status: 'activo',
-    price: '',
-    client_has_existing_profile: false,
-    profile_url: '',
-    notes: '',
+    status: 'activo', price: '', client_has_existing_profile: false, profile_url: '', notes: '',
   });
-
   const [adsEnabled, setAdsEnabled] = useState(false);
   const [adsData, setAdsData] = useState({
-    status: 'activo',
-    monthly_budget: '',
-    monthly_fee: '',
-    campaign_type: 'search',
-    start_date: '',
-    notes: '',
+    status: 'activo', monthly_budget: '', monthly_fee: '', campaign_type: 'search', start_date: '', notes: '',
   });
+
+  // Información económica
+  const [financialInfo, setFinancialInfo] = useState({
+    web_price:               '',
+    amount_paid:             '',
+    payment_status:          'pendiente',
+    has_maintenance:         false,
+    maintenance_monthly_fee: '',
+    maintenance_status:      'no_contratado',
+    maintenance_start_date:  '',
+    maintenance_notes:       '',
+  });
+  const handleFinancial = (field, value) => setFinancialInfo(prev => ({ ...prev, [field]: value }));
+
+  const pendingAmount = (() => {
+    const wp = parseFloat(financialInfo.web_price)   || 0;
+    const ap = parseFloat(financialInfo.amount_paid) || 0;
+    return Math.max(wp - ap, 0);
+  })();
 
   const projectTypes = [
     { id: 'landing',   title: 'Landing Page',    description: 'One-page site focusing on conversion',     icon: Layout },
@@ -70,50 +93,57 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
   ];
 
   const addonFeatures = [
-    { id: 'hosting',  label: 'Tiene Dominio/Hosting',  description: 'Si no lo tienes, lo configuramos por ti', icon: Server },
-    { id: 'multilang',label: 'Necesita Multi-idioma',  description: 'Soporte para múltiples idiomas',           icon: Globe2 },
-    { id: 'payments', label: 'Pasarela de Pago',       description: 'Integración con Stripe o PayPal',          icon: CreditCard },
+    { id: 'hosting',   label: 'Tiene Dominio/Hosting',  description: 'Si no lo tienes, lo configuramos por ti', icon: Server },
+    { id: 'multilang', label: 'Necesita Multi-idioma',  description: 'Soporte para múltiples idiomas',           icon: Globe2 },
+    { id: 'payments',  label: 'Pasarela de Pago',       description: 'Integración con Stripe o PayPal',          icon: CreditCard },
   ];
 
   const selectedType = projectTypes.find(t => t.id === projectType);
-
   const handleAddonChange = (id, value) => setAddons(prev => ({ ...prev, [id]: value }));
 
   const handleCreateProject = async () => {
-    // Validación email del cliente
+    // Validaciones info cliente
     if (clientInfo.client_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientInfo.client_email)) {
-      alert('El email del cliente no tiene un formato válido.');
-      return;
+      alert('El email del cliente no tiene un formato válido.'); return;
     }
-    // Validación teléfono
     if (clientInfo.client_phone && !/^[\d\s+\-()]+$/.test(clientInfo.client_phone)) {
-      alert('El teléfono no tiene un formato válido. Usa solo números, espacios, +, - o paréntesis.');
-      return;
+      alert('El teléfono no tiene un formato válido.'); return;
     }
-    // Validación WhatsApp
     if (clientInfo.client_whatsapp && !/^[\d\s+\-()]+$/.test(clientInfo.client_whatsapp)) {
-      alert('El WhatsApp no tiene un formato válido. Usa solo números, espacios, +, - o paréntesis.');
-      return;
+      alert('El WhatsApp no tiene un formato válido.'); return;
     }
 
-    // Validaciones de servicios
+    // Validaciones económicas
+    if (financialInfo.web_price !== '' && parseFloat(financialInfo.web_price) < 0) {
+      alert('El precio de la web no puede ser negativo.'); return;
+    }
+    if (financialInfo.amount_paid !== '' && parseFloat(financialInfo.amount_paid) < 0) {
+      alert('El importe cobrado no puede ser negativo.'); return;
+    }
+    if (financialInfo.maintenance_monthly_fee !== '' && parseFloat(financialInfo.maintenance_monthly_fee) < 0) {
+      alert('La cuota de mantenimiento no puede ser negativa.'); return;
+    }
+    const wp = parseFloat(financialInfo.web_price)   || 0;
+    const ap = parseFloat(financialInfo.amount_paid) || 0;
+    if (ap > wp && wp > 0) {
+      const ok = window.confirm('El importe cobrado supera el precio de la web. ¿Continuar igualmente?');
+      if (!ok) return;
+    }
+
+    // Validaciones servicios
     if (gbEnabled && gbData.profile_url) {
       try { new URL(gbData.profile_url); } catch {
-        alert('La URL de la ficha de Google Business no es válida.');
-        return;
+        alert('La URL de la ficha de Google Business no es válida.'); return;
       }
     }
     if (gbEnabled && gbData.price !== '' && parseFloat(gbData.price) < 0) {
-      alert('El precio del servicio no puede ser negativo.');
-      return;
+      alert('El precio del servicio no puede ser negativo.'); return;
     }
     if (adsEnabled && adsData.monthly_budget !== '' && parseFloat(adsData.monthly_budget) < 0) {
-      alert('El presupuesto mensual no puede ser negativo.');
-      return;
+      alert('El presupuesto mensual no puede ser negativo.'); return;
     }
     if (adsEnabled && adsData.monthly_fee !== '' && parseFloat(adsData.monthly_fee) < 0) {
-      alert('El fee de gestión no puede ser negativo.');
-      return;
+      alert('El fee de gestión no puede ser negativo.'); return;
     }
 
     const deliveryDate = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000);
@@ -128,6 +158,7 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
       fecha_estimada: deliveryDate.toISOString().split('T')[0],
       estado:         'activo',
       user_id:        session?.user?.id,
+      // Info cliente
       client_contact_name: clientInfo.client_contact_name || null,
       client_company:      clientInfo.client_company      || null,
       client_email:        clientInfo.client_email        || null,
@@ -137,6 +168,15 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
       client_sector:       clientInfo.client_sector       || null,
       client_tax_id:       clientInfo.client_tax_id       || null,
       client_notes:        clientInfo.client_notes        || null,
+      // Info económica
+      web_price:               financialInfo.web_price               !== '' ? parseFloat(financialInfo.web_price)               : null,
+      amount_paid:             financialInfo.amount_paid             !== '' ? parseFloat(financialInfo.amount_paid)             : null,
+      payment_status:          financialInfo.payment_status          || null,
+      has_maintenance:         financialInfo.has_maintenance,
+      maintenance_monthly_fee: financialInfo.has_maintenance && financialInfo.maintenance_monthly_fee !== '' ? parseFloat(financialInfo.maintenance_monthly_fee) : null,
+      maintenance_status:      financialInfo.has_maintenance ? financialInfo.maintenance_status : 'no_contratado',
+      maintenance_start_date:  financialInfo.has_maintenance && financialInfo.maintenance_start_date ? financialInfo.maintenance_start_date : null,
+      maintenance_notes:       financialInfo.has_maintenance && financialInfo.maintenance_notes ? financialInfo.maintenance_notes : null,
     };
 
     const { data: projectData, error } = await supabase
@@ -151,28 +191,20 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
       return;
     }
 
-    // Guardar servicios adicionales habilitados
     const serviceInserts = [];
-
     if (gbEnabled) {
       serviceInserts.push({
-        project_id:                  projectData.id,
-        type:                        'google_business',
-        enabled:                     true,
-        status:                      gbData.status,
-        price:                       gbData.price !== '' ? parseFloat(gbData.price) : null,
+        project_id: projectData.id, type: 'google_business', enabled: true,
+        status: gbData.status,
+        price: gbData.price !== '' ? parseFloat(gbData.price) : null,
         client_has_existing_profile: gbData.client_has_existing_profile,
-        profile_url:                 gbData.profile_url || null,
-        notes:                       gbData.notes || null,
+        profile_url: gbData.profile_url || null, notes: gbData.notes || null,
       });
     }
-
     if (adsEnabled) {
       serviceInserts.push({
-        project_id:     projectData.id,
-        type:           'google_ads',
-        enabled:        true,
-        status:         adsData.status,
+        project_id: projectData.id, type: 'google_ads', enabled: true,
+        status: adsData.status,
         monthly_budget: adsData.monthly_budget !== '' ? parseFloat(adsData.monthly_budget) : null,
         monthly_fee:    adsData.monthly_fee    !== '' ? parseFloat(adsData.monthly_fee)    : null,
         campaign_type:  adsData.campaign_type  || null,
@@ -180,7 +212,6 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
         notes:          adsData.notes          || null,
       });
     }
-
     if (serviceInserts.length > 0) {
       const { error: svcErr } = await supabase.from('project_services').insert(serviceInserts);
       if (svcErr) console.error('Error guardando servicios:', svcErr);
@@ -202,7 +233,7 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
         </button>
         <h1 className="text-4xl font-black mb-8 text-gray-900 dark:text-white tracking-tight">Registrar Nuevo Proyecto</h1>
 
-        {/* PASO 1 */}
+        {/* PASO 1 — Información Básica */}
         <section className="mb-10">
           <div className="mb-6">
             <h2 className="text-2xl font-bold flex items-center gap-3 text-gray-900 dark:text-white mb-1">
@@ -214,28 +245,16 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
           <div className="ml-11 space-y-6">
             <div>
               <label className={labelClass} htmlFor="clientName">Nombre del Cliente / Proyecto</label>
-              <input
-                id="clientName"
-                type="text"
-                className={inputClass + ' font-bold'}
-                placeholder="Ej. Acme Corp..."
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-              />
+              <input id="clientName" type="text" className={inputClass + ' font-bold'}
+                placeholder="Ej. Acme Corp..." value={clientName}
+                onChange={(e) => setClientName(e.target.value)} />
             </div>
             <div>
               <label className={labelClass}>Tipo de Proyecto</label>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {projectTypes.map((type) => (
-                  <CardSelector
-                    key={type.id}
-                    id={type.id}
-                    title={type.title}
-                    description={type.description}
-                    icon={type.icon}
-                    selected={projectType === type.id}
-                    onClick={setProjectType}
-                  />
+                  <CardSelector key={type.id} id={type.id} title={type.title} description={type.description}
+                    icon={type.icon} selected={projectType === type.id} onClick={setProjectType} />
                 ))}
               </div>
             </div>
@@ -253,116 +272,66 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
             </h2>
             <p className="text-gray-500 dark:text-gray-400 text-sm ml-11 font-medium">Datos de contacto y perfil del cliente. Todos los campos son opcionales.</p>
           </div>
-
           <div className="ml-11 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className={labelClass}>Contacto principal</label>
-                <input
-                  type="text"
-                  className={inputClass}
-                  placeholder="Nombre y apellidos"
-                  value={clientInfo.client_contact_name}
-                  onChange={(e) => handleClientInfo('client_contact_name', e.target.value)}
-                />
+                <input type="text" className={inputClass} placeholder="Nombre y apellidos"
+                  value={clientInfo.client_contact_name} onChange={(e) => handleClientInfo('client_contact_name', e.target.value)} />
               </div>
               <div>
                 <label className={labelClass}>Empresa o negocio</label>
-                <input
-                  type="text"
-                  className={inputClass}
-                  placeholder="Nombre comercial o razón social"
-                  value={clientInfo.client_company}
-                  onChange={(e) => handleClientInfo('client_company', e.target.value)}
-                />
+                <input type="text" className={inputClass} placeholder="Nombre comercial o razón social"
+                  value={clientInfo.client_company} onChange={(e) => handleClientInfo('client_company', e.target.value)} />
               </div>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className={labelClass}>Email</label>
-                <input
-                  type="email"
-                  className={inputClass}
-                  placeholder="cliente@empresa.com"
-                  value={clientInfo.client_email}
-                  onChange={(e) => handleClientInfo('client_email', e.target.value)}
-                />
+                <input type="email" className={inputClass} placeholder="cliente@empresa.com"
+                  value={clientInfo.client_email} onChange={(e) => handleClientInfo('client_email', e.target.value)} />
               </div>
               <div>
                 <label className={labelClass}>Teléfono</label>
-                <input
-                  type="tel"
-                  className={inputClass}
-                  placeholder="+34 600 000 000"
-                  value={clientInfo.client_phone}
-                  onChange={(e) => handleClientInfo('client_phone', e.target.value)}
-                />
+                <input type="tel" className={inputClass} placeholder="+34 600 000 000"
+                  value={clientInfo.client_phone} onChange={(e) => handleClientInfo('client_phone', e.target.value)} />
               </div>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className={labelClass}>WhatsApp</label>
-                <input
-                  type="tel"
-                  className={inputClass}
-                  placeholder="+34 600 000 000"
-                  value={clientInfo.client_whatsapp}
-                  onChange={(e) => handleClientInfo('client_whatsapp', e.target.value)}
-                />
+                <input type="tel" className={inputClass} placeholder="+34 600 000 000"
+                  value={clientInfo.client_whatsapp} onChange={(e) => handleClientInfo('client_whatsapp', e.target.value)} />
               </div>
               <div>
                 <label className={labelClass}>Dirección o zona</label>
-                <input
-                  type="text"
-                  className={inputClass}
-                  placeholder="Ciudad, provincia o dirección"
-                  value={clientInfo.client_address}
-                  onChange={(e) => handleClientInfo('client_address', e.target.value)}
-                />
+                <input type="text" className={inputClass} placeholder="Ciudad, provincia o dirección"
+                  value={clientInfo.client_address} onChange={(e) => handleClientInfo('client_address', e.target.value)} />
               </div>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className={labelClass}>Sector del negocio</label>
-                <input
-                  type="text"
-                  className={inputClass}
-                  placeholder="Ej. Restauración, Retail, Legal..."
-                  value={clientInfo.client_sector}
-                  onChange={(e) => handleClientInfo('client_sector', e.target.value)}
-                />
+                <input type="text" className={inputClass} placeholder="Ej. Restauración, Retail, Legal..."
+                  value={clientInfo.client_sector} onChange={(e) => handleClientInfo('client_sector', e.target.value)} />
               </div>
               <div>
                 <label className={labelClass}>NIF / CIF <span className="text-gray-400 font-normal">(opcional)</span></label>
-                <input
-                  type="text"
-                  className={inputClass}
-                  placeholder="Ej. B12345678"
-                  value={clientInfo.client_tax_id}
-                  onChange={(e) => handleClientInfo('client_tax_id', e.target.value)}
-                />
+                <input type="text" className={inputClass} placeholder="Ej. B12345678"
+                  value={clientInfo.client_tax_id} onChange={(e) => handleClientInfo('client_tax_id', e.target.value)} />
               </div>
             </div>
-
             <div>
               <label className={labelClass}>Notas internas del cliente</label>
-              <textarea
-                rows={3}
-                className={inputClass + ' resize-none'}
-                placeholder="Observaciones privadas sobre el cliente..."
-                value={clientInfo.client_notes}
-                onChange={(e) => handleClientInfo('client_notes', e.target.value)}
-              />
+              <textarea rows={3} className={inputClass + ' resize-none'} placeholder="Observaciones privadas sobre el cliente..."
+                value={clientInfo.client_notes} onChange={(e) => handleClientInfo('client_notes', e.target.value)} />
             </div>
           </div>
         </section>
 
         <div className="h-px bg-gray-200 dark:bg-white/10 w-full my-8"></div>
 
-        {/* PASO 3 */}
+        {/* PASO 3 — Estructura y Opciones */}
         <section className="mb-10">
           <div className="mb-6">
             <h2 className="text-2xl font-bold flex items-center gap-3 text-gray-900 dark:text-white mb-1">
@@ -374,28 +343,15 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
           <div className="ml-11 space-y-8">
             <div className="max-w-[300px]">
               <label className={labelClass} htmlFor="pageCount">Cantidad de Páginas estimadas</label>
-              <input
-                id="pageCount"
-                type="number"
-                min="1"
-                className={inputClass + ' font-bold'}
-                value={pageCount}
-                onChange={(e) => setPageCount(parseInt(e.target.value) || 1)}
-              />
+              <input id="pageCount" type="number" min="1" className={inputClass + ' font-bold'} value={pageCount}
+                onChange={(e) => setPageCount(parseInt(e.target.value) || 1)} />
             </div>
             <div>
               <label className={labelClass}>Opciones Extra</label>
               <div className="space-y-3">
                 {addonFeatures.map((feature) => (
-                  <ToggleSwitch
-                    key={feature.id}
-                    id={feature.id}
-                    label={feature.label}
-                    description={feature.description}
-                    icon={feature.icon}
-                    checked={addons[feature.id]}
-                    onChange={handleAddonChange}
-                  />
+                  <ToggleSwitch key={feature.id} id={feature.id} label={feature.label} description={feature.description}
+                    icon={feature.icon} checked={addons[feature.id]} onChange={handleAddonChange} />
                 ))}
               </div>
             </div>
@@ -405,7 +361,7 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
         <div className="h-px bg-gray-200 dark:bg-white/10 w-full my-8"></div>
 
         {/* PASO 4 — Servicios Adicionales */}
-        <section>
+        <section className="mb-10">
           <div className="mb-6">
             <h2 className="text-2xl font-bold flex items-center gap-3 text-gray-900 dark:text-white mb-1">
               <span className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-md shadow-emerald-500/30">4</span>
@@ -413,109 +369,70 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
             </h2>
             <p className="text-gray-500 dark:text-gray-400 text-sm ml-11 font-medium">Servicios complementarios de marketing digital para este cliente.</p>
           </div>
-
           <div className="ml-11 space-y-4">
-
             {/* Google Business Profile */}
             <div className="border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden">
               <div className="p-4 bg-white dark:bg-slate-800/50">
-                <ToggleSwitch
-                  id="googleBusiness"
-                  label="Ficha de Google Business Profile"
+                <ToggleSwitch id="googleBusiness" label="Ficha de Google Business Profile"
                   description="Gestión y optimización de la ficha de negocio en Google"
-                  icon={MapPin}
-                  checked={gbEnabled}
-                  onChange={(_, value) => setGbEnabled(value)}
-                />
+                  icon={MapPin} checked={gbEnabled} onChange={(_, v) => setGbEnabled(v)} />
               </div>
-
               {gbEnabled && (
                 <div className="p-5 bg-gray-50 dark:bg-slate-800/30 border-t border-gray-200 dark:border-white/10 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className={labelClass}>Estado del servicio</label>
-                      <select
-                        className={inputClass + ' cursor-pointer'}
-                        value={gbData.status}
-                        onChange={(e) => setGbData(prev => ({ ...prev, status: e.target.value }))}
-                      >
+                      <select className={inputClass + ' cursor-pointer'} value={gbData.status}
+                        onChange={(e) => setGbData(prev => ({ ...prev, status: e.target.value }))}>
                         {SERVICE_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                       </select>
                     </div>
                     <div>
                       <label className={labelClass}>Precio del servicio (€/mes)</label>
-                      <input
-                        type="number" min="0" step="0.01" placeholder="0.00"
-                        className={inputClass}
-                        value={gbData.price}
-                        onChange={(e) => setGbData(prev => ({ ...prev, price: e.target.value }))}
-                      />
+                      <input type="number" min="0" step="0.01" placeholder="0.00" className={inputClass}
+                        value={gbData.price} onChange={(e) => setGbData(prev => ({ ...prev, price: e.target.value }))} />
                     </div>
                   </div>
                   <div>
                     <label className={labelClass}>URL de la ficha de Google</label>
-                    <input
-                      type="url" placeholder="https://maps.google.com/..."
-                      className={inputClass}
-                      value={gbData.profile_url}
-                      onChange={(e) => setGbData(prev => ({ ...prev, profile_url: e.target.value }))}
-                    />
+                    <input type="url" placeholder="https://maps.google.com/..." className={inputClass}
+                      value={gbData.profile_url} onChange={(e) => setGbData(prev => ({ ...prev, profile_url: e.target.value }))} />
                   </div>
                   <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       checked={gbData.client_has_existing_profile}
-                      onChange={(e) => setGbData(prev => ({ ...prev, client_has_existing_profile: e.target.checked }))}
-                    />
+                      onChange={(e) => setGbData(prev => ({ ...prev, client_has_existing_profile: e.target.checked }))} />
                     <span className="text-sm font-bold text-gray-700 dark:text-gray-300">El cliente ya tiene ficha creada</span>
                   </label>
                   <div>
                     <label className={labelClass}>Notas internas</label>
-                    <textarea
-                      rows={3} placeholder="Notas opcionales sobre este servicio..."
-                      className={inputClass + ' resize-none'}
-                      value={gbData.notes}
-                      onChange={(e) => setGbData(prev => ({ ...prev, notes: e.target.value }))}
-                    />
+                    <textarea rows={3} placeholder="Notas opcionales sobre este servicio..." className={inputClass + ' resize-none'}
+                      value={gbData.notes} onChange={(e) => setGbData(prev => ({ ...prev, notes: e.target.value }))} />
                   </div>
                 </div>
               )}
             </div>
-
             {/* Google Ads */}
             <div className="border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden">
               <div className="p-4 bg-white dark:bg-slate-800/50">
-                <ToggleSwitch
-                  id="googleAds"
-                  label="Campañas de Google Ads"
+                <ToggleSwitch id="googleAds" label="Campañas de Google Ads"
                   description="Gestión de campañas publicitarias en Google"
-                  icon={BarChart2}
-                  checked={adsEnabled}
-                  onChange={(_, value) => setAdsEnabled(value)}
-                />
+                  icon={BarChart2} checked={adsEnabled} onChange={(_, v) => setAdsEnabled(v)} />
               </div>
-
               {adsEnabled && (
                 <div className="p-5 bg-gray-50 dark:bg-slate-800/30 border-t border-gray-200 dark:border-white/10 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className={labelClass}>Estado del servicio</label>
-                      <select
-                        className={inputClass + ' cursor-pointer'}
-                        value={adsData.status}
-                        onChange={(e) => setAdsData(prev => ({ ...prev, status: e.target.value }))}
-                      >
+                      <select className={inputClass + ' cursor-pointer'} value={adsData.status}
+                        onChange={(e) => setAdsData(prev => ({ ...prev, status: e.target.value }))}>
                         {SERVICE_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                       </select>
                     </div>
                     <div>
                       <label className={labelClass}>Tipo de campaña</label>
-                      <select
-                        className={inputClass + ' cursor-pointer'}
-                        value={adsData.campaign_type}
-                        onChange={(e) => setAdsData(prev => ({ ...prev, campaign_type: e.target.value }))}
-                      >
+                      <select className={inputClass + ' cursor-pointer'} value={adsData.campaign_type}
+                        onChange={(e) => setAdsData(prev => ({ ...prev, campaign_type: e.target.value }))}>
                         {CAMPAIGN_TYPES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                       </select>
                     </div>
@@ -523,45 +440,121 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className={labelClass}>Presupuesto mensual del cliente (€)</label>
-                      <input
-                        type="number" min="0" step="0.01" placeholder="0.00"
-                        className={inputClass}
-                        value={adsData.monthly_budget}
-                        onChange={(e) => setAdsData(prev => ({ ...prev, monthly_budget: e.target.value }))}
-                      />
+                      <input type="number" min="0" step="0.01" placeholder="0.00" className={inputClass}
+                        value={adsData.monthly_budget} onChange={(e) => setAdsData(prev => ({ ...prev, monthly_budget: e.target.value }))} />
                     </div>
                     <div>
                       <label className={labelClass}>Fee mensual de gestión (€)</label>
-                      <input
-                        type="number" min="0" step="0.01" placeholder="0.00"
-                        className={inputClass}
-                        value={adsData.monthly_fee}
-                        onChange={(e) => setAdsData(prev => ({ ...prev, monthly_fee: e.target.value }))}
-                      />
+                      <input type="number" min="0" step="0.01" placeholder="0.00" className={inputClass}
+                        value={adsData.monthly_fee} onChange={(e) => setAdsData(prev => ({ ...prev, monthly_fee: e.target.value }))} />
                     </div>
                   </div>
                   <div>
                     <label className={labelClass}>Fecha de inicio</label>
-                    <input
-                      type="date"
-                      className={inputClass}
-                      value={adsData.start_date}
-                      onChange={(e) => setAdsData(prev => ({ ...prev, start_date: e.target.value }))}
-                    />
+                    <input type="date" className={inputClass} value={adsData.start_date}
+                      onChange={(e) => setAdsData(prev => ({ ...prev, start_date: e.target.value }))} />
                   </div>
                   <div>
                     <label className={labelClass}>Notas internas</label>
-                    <textarea
-                      rows={3} placeholder="Notas opcionales sobre este servicio..."
-                      className={inputClass + ' resize-none'}
-                      value={adsData.notes}
-                      onChange={(e) => setAdsData(prev => ({ ...prev, notes: e.target.value }))}
-                    />
+                    <textarea rows={3} placeholder="Notas opcionales sobre este servicio..." className={inputClass + ' resize-none'}
+                      value={adsData.notes} onChange={(e) => setAdsData(prev => ({ ...prev, notes: e.target.value }))} />
                   </div>
                 </div>
               )}
             </div>
+          </div>
+        </section>
 
+        <div className="h-px bg-gray-200 dark:bg-white/10 w-full my-8"></div>
+
+        {/* PASO 5 — Información Económica */}
+        <section>
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold flex items-center gap-3 text-gray-900 dark:text-white mb-1">
+              <span className="bg-gradient-to-br from-amber-500 to-orange-600 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm shadow-md shadow-amber-500/30">5</span>
+              Información Económica
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 text-sm ml-11 font-medium">Precio del proyecto, cobros y mantenimiento mensual.</p>
+          </div>
+
+          <div className="ml-11 space-y-4">
+            {/* Precio y estado de pago */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Precio de la web (€)</label>
+                <input type="number" min="0" step="0.01" placeholder="0.00" className={inputClass}
+                  value={financialInfo.web_price} onChange={(e) => handleFinancial('web_price', e.target.value)} />
+              </div>
+              <div>
+                <label className={labelClass}>Estado de pago</label>
+                <select className={inputClass + ' cursor-pointer'} value={financialInfo.payment_status}
+                  onChange={(e) => handleFinancial('payment_status', e.target.value)}>
+                  {PAYMENT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Importe cobrado (€)</label>
+                <input type="number" min="0" step="0.01" placeholder="0.00" className={inputClass}
+                  value={financialInfo.amount_paid} onChange={(e) => handleFinancial('amount_paid', e.target.value)} />
+                {financialInfo.web_price !== '' && financialInfo.amount_paid !== '' && (
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-1.5">
+                    Pendiente: <span className={`font-bold ${pendingAmount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{pendingAmount.toFixed(2)} €</span>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="h-px bg-gray-100 dark:bg-white/10 my-2"></div>
+
+            {/* Mantenimiento mensual */}
+            <div className="border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden">
+              <div className="p-4 bg-white dark:bg-slate-800/50">
+                <ToggleSwitch id="hasMaintenance" label="Mantenimiento mensual contratado"
+                  description="El cliente tiene un plan de mantenimiento mensual activo"
+                  icon={Wrench} checked={financialInfo.has_maintenance}
+                  onChange={(_, v) => {
+                    handleFinancial('has_maintenance', v);
+                    if (v) handleFinancial('maintenance_status', 'activo');
+                    else    handleFinancial('maintenance_status', 'no_contratado');
+                  }} />
+              </div>
+
+              {financialInfo.has_maintenance && (
+                <div className="p-5 bg-gray-50 dark:bg-slate-800/30 border-t border-gray-200 dark:border-white/10 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className={labelClass}>Cuota mensual (€/mes)</label>
+                      <input type="number" min="0" step="0.01" placeholder="0.00" className={inputClass}
+                        value={financialInfo.maintenance_monthly_fee}
+                        onChange={(e) => handleFinancial('maintenance_monthly_fee', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Estado del mantenimiento</label>
+                      <select className={inputClass + ' cursor-pointer'} value={financialInfo.maintenance_status}
+                        onChange={(e) => handleFinancial('maintenance_status', e.target.value)}>
+                        {MAINTENANCE_STATUSES.filter(s => s.value !== 'no_contratado').map(s =>
+                          <option key={s.value} value={s.value}>{s.label}</option>
+                        )}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Fecha de inicio del mantenimiento</label>
+                    <input type="date" className={inputClass} value={financialInfo.maintenance_start_date}
+                      onChange={(e) => handleFinancial('maintenance_start_date', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Notas internas del mantenimiento</label>
+                    <textarea rows={3} placeholder="Observaciones sobre el contrato de mantenimiento..."
+                      className={inputClass + ' resize-none'} value={financialInfo.maintenance_notes}
+                      onChange={(e) => handleFinancial('maintenance_notes', e.target.value)} />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </section>
       </main>
@@ -612,6 +605,32 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
               </div>
             )}
 
+            {(financialInfo.web_price || financialInfo.amount_paid) && (
+              <div className="pt-5 mt-3 border-t border-gray-100 dark:border-white/5">
+                <p className="text-[11px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-extrabold mb-4 flex items-center gap-1.5">
+                  <DollarSign size={10} /> Económico
+                </p>
+                {financialInfo.web_price && (
+                  <div className="flex justify-between text-sm mb-3">
+                    <span className="font-medium text-gray-600 dark:text-gray-400">Precio web</span>
+                    <span className="font-bold text-gray-900 dark:text-white">{parseFloat(financialInfo.web_price).toFixed(2)} €</span>
+                  </div>
+                )}
+                {financialInfo.amount_paid && (
+                  <div className="flex justify-between text-sm mb-3">
+                    <span className="font-medium text-gray-600 dark:text-gray-400">Cobrado</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">{parseFloat(financialInfo.amount_paid).toFixed(2)} €</span>
+                  </div>
+                )}
+                {financialInfo.has_maintenance && financialInfo.maintenance_monthly_fee && (
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium text-gray-600 dark:text-gray-400">Mantenimiento</span>
+                    <span className="font-bold text-blue-600 dark:text-blue-400">{parseFloat(financialInfo.maintenance_monthly_fee).toFixed(2)} €/mes</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {(addons.hosting || addons.payments || addons.multilang) && (
               <div className="pt-5 mt-3 border-t border-gray-100 dark:border-white/5">
                 <p className="text-[11px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-extrabold mb-4">Opciones Extra</p>
@@ -629,8 +648,7 @@ const CreateProjectView = ({ setCurrentView, setShowSuccess, session }) => {
                 )}
                 {addons.multilang && (
                   <div className="flex justify-between text-sm text-blue-600 dark:text-blue-400 font-bold bg-blue-50/50 dark:bg-blue-500/10 p-2.5 rounded-xl border border-blue-100 dark:border-blue-500/20">
-                    <span>Multi-idioma</span>
-                    <span>Sí</span>
+                    <span>Multi-idioma</span><span>Sí</span>
                   </div>
                 )}
               </div>
