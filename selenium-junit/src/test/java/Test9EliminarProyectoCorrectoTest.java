@@ -5,6 +5,7 @@ import org.junit.Before;
 import org.junit.After;
 import static org.junit.Assert.*;
 
+import org.openqa.selenium.Alert;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.firefox.FirefoxDriver;
@@ -105,14 +106,41 @@ public class Test9EliminarProyectoCorrectoTest {
             By.xpath("//h3[contains(text(),'" + nombreProyecto + "')]")));
     assertTrue(proyectoCreado.isDisplayed());
 
-    WebElement botonEliminar = wait.until(
-        ExpectedConditions.elementToBeClickable(
-            By.xpath("//h3[contains(text(),'" + nombreProyecto
-                + "')]/ancestor::div[contains(@class,'bg-white') or contains(@class,'shadow') or contains(@class,'rounded')][1]//button[.//*[name()='svg']]")));
+    WebElement botonEliminar = (WebElement) js.executeScript(
+        "const nombre = arguments[0];" +
+            "const titulos = Array.from(document.querySelectorAll('h3'));" +
+            "const titulo = titulos.find(h => h.textContent.includes(nombre));" +
+            "if (!titulo) return null;" +
+            "let nodo = titulo;" +
+            "while (nodo && nodo !== document.body) {" +
+            "  const botones = Array.from(nodo.querySelectorAll('button'));" +
+            "  if (botones.length > 0) {" +
+            "    const botonRojo = botones.find(b => {" +
+            "      const cls = (b.className || '').toString().toLowerCase();" +
+            "      const title = (b.getAttribute('title') || '').toLowerCase();" +
+            "      const aria = (b.getAttribute('aria-label') || '').toLowerCase();" +
+            "      return cls.includes('red') || title.includes('eliminar') || title.includes('descartar') || aria.includes('eliminar') || aria.includes('descartar');"
+            +
+            "    });" +
+            "    if (botonRojo) return botonRojo;" +
+            "    if (botones.length >= 2) return botones[botones.length - 1];" +
+            "  }" +
+            "  nodo = nodo.parentElement;" +
+            "}" +
+            "return null;",
+        nombreProyecto);
+
+    assertNotNull("Debe encontrarse el botón de eliminar del proyecto creado", botonEliminar);
 
     js.executeScript("arguments[0].scrollIntoView({block: 'center'});", botonEliminar);
     Thread.sleep(500);
     js.executeScript("arguments[0].click();", botonEliminar);
+
+    try {
+      Alert alert = wait.until(ExpectedConditions.alertIsPresent());
+      alert.accept();
+    } catch (Exception ignored) {
+    }
 
     Thread.sleep(1500);
 

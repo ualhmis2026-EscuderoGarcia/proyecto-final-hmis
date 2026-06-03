@@ -19,7 +19,8 @@
     "generar-exe": "npm run build && electron-builder --win",
     "publicar-exe": "npm run build && electron-builder --win -p always",
     "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "selenium:iter1": "selenium-side-runner --jest-timeout 120000 -c \"browserName=chrome goog:chromeOptions.args=[--headless=new,--disable-gpu,--window-size=1920,1080]\" selenium/proyectofinalHMIS.side"
   },
   "build": {
     "appId": "com.tuapp.flujotrabajo",
@@ -61,6 +62,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.4.27",
+    "chromedriver": "^149.0.1",
     "electron": "^41.2.1",
     "electron-builder": "^26.8.1",
     "eslint": "^9.39.4",
@@ -68,6 +70,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
     "postcss": "^8.5.9",
+    "selenium-side-runner": "^4.0.13",
     "tailwindcss": "^3.4.19",
     "vite": "^8.0.4"
   }
